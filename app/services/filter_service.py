@@ -19,7 +19,12 @@ EMAIL_REGEX = re.compile(
 
 def process_file(df, db):
 
-    # Normalize emails
+    original_rows = len(df)
+
+    # =========================
+    # NORMALIZE
+    # =========================
+
     df["Email"] = (
         df["Email"]
         .fillna("")
@@ -28,27 +33,62 @@ def process_file(df, db):
         .str.lower()
     )
 
-    # Remove blank emails
+    # =========================
+    # REMOVE BLANK EMAILS
+    # =========================
+
     df = df[df["Email"] != ""]
 
-    # Remove duplicates
+    # =========================
+    # REMOVE DUPLICATES
+    # =========================
+
+    before_duplicates = len(df)
+
     df = df.drop_duplicates(subset=["Email"])
 
-    # Regex validation
+    removed_duplicates = (
+        before_duplicates - len(df)
+    )
+
+    # =========================
+    # REGEX VALIDATION
+    # =========================
+
+    before_validation = len(df)
+
     valid_df = df[
         df["Email"].apply(
             lambda x: bool(EMAIL_REGEX.match(x))
         )
     ]
 
+    removed_invalid = (
+        before_validation - len(valid_df)
+    )
+
     if valid_df.empty:
-        return valid_df
+
+        return {
+            "filtered_df": valid_df,
+            "stats": {
+                "original_rows": original_rows,
+                "valid_rows": 0,
+                "removed_duplicates": removed_duplicates,
+                "removed_invalid": removed_invalid,
+                "removed_unsubscribed": 0,
+                "removed_recent": 0
+            }
+        }
 
     # =========================
     # STAGE DATA
     # =========================
 
-    batch_id = stage_uploaded_contacts(db, valid_df)
+    batch_id = stage_uploaded_contacts(
+        db,
+        valid_df
+    )
 
     # =========================
     # UNSUBSCRIBED FILTER
@@ -69,6 +109,10 @@ def process_file(df, db):
 
         ).scalars().all()
 
+    )
+
+    removed_unsubscribed = len(
+        unsubscribed_emails
     )
 
     filtered_df = valid_df[
@@ -102,6 +146,10 @@ def process_file(df, db):
 
     )
 
+    removed_recent = len(
+        recent_emails
+    )
+
     filtered_df = filtered_df[
         ~filtered_df["Email"].isin(recent_emails)
     ]
@@ -118,4 +166,14 @@ def process_file(df, db):
 
     db.commit()
 
-    return filtered_df
+    return {
+        "filtered_df": filtered_df,
+        "stats": {
+            "original_rows": original_rows,
+            "valid_rows": len(filtered_df),
+            "removed_duplicates": removed_duplicates,
+            "removed_invalid": removed_invalid,
+            "removed_unsubscribed": removed_unsubscribed,
+            "removed_recent": removed_recent
+        }
+    }

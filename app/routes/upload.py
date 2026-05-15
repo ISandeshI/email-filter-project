@@ -1,5 +1,5 @@
 from fastapi import APIRouter, UploadFile, File
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 import time
 import pandas as pd
 import uuid
@@ -55,6 +55,10 @@ async def upload_file(file: UploadFile = File(...)):
 
     original_rows = 0
     total_valid_rows = 0
+    total_removed_duplicates = 0
+    total_removed_invalid = 0
+    total_removed_unsubscribed = 0
+    total_removed_recent = 0
 
     # =========================
     # XLSX PROCESSING
@@ -143,13 +147,34 @@ async def upload_file(file: UploadFile = File(...)):
 
                 original_rows += len(chunk)
 
-                filtered_chunk = process_file(chunk, db)
+                result = process_file(chunk, db)
+
+                filtered_chunk = result["filtered_df"]
+
+                stats = result["stats"]
+
+                total_removed_duplicates += (
+                    stats["removed_duplicates"]
+                )
+
+                total_removed_invalid += (
+                    stats["removed_invalid"]
+                )
+
+                total_removed_unsubscribed += (
+                    stats["removed_unsubscribed"]
+                )
+
+                total_removed_recent += (
+                    stats["removed_recent"]
+                )
+
                 if not filtered_chunk.empty:
                     bulk_upsert_master_contacts(db, filtered_chunk)
 
                 if not filtered_chunk.empty:
 
-                    total_valid_rows += len(filtered_chunk)
+                    total_valid_rows += stats["valid_rows"]
 
                     filtered_chunk.to_excel(
                         excel_writer,
@@ -202,8 +227,47 @@ async def upload_file(file: UploadFile = File(...)):
     # RETURN FILE
     # =========================
 
+    return JSONResponse({
+
+        "success": True,
+
+        "download_url": (
+            f"http://127.0.0.1:8000/download/"
+            f"{filtered_output_path.split('/')[-1]}"
+        ),
+
+        "stats": {
+
+            "original_rows": original_rows,
+
+            "valid_rows": total_valid_rows,
+
+            "removed_rows": (
+                original_rows - total_valid_rows
+            ),
+
+            "removed_duplicates":
+                total_removed_duplicates,
+
+            "removed_invalid":
+                total_removed_invalid,
+
+            "removed_unsubscribed":
+                total_removed_unsubscribed,
+
+            "removed_recent":
+                total_removed_recent,
+
+            "processing_time_seconds":
+                int(time.time() - start_time)
+        }
+    })
+
+@router.get("/download/{filename}")
+async def download_file(filename: str):
+
     return FileResponse(
-        path=filtered_output_path,
+        path=f"filtered_files/{filename}",
         filename="filtered_contacts.xlsx",
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
