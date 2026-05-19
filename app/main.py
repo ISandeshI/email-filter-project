@@ -6,6 +6,8 @@ from app.routes.dashboard import router as dashboard_router
 from app.routes.contacts import router as contacts_router
 from app.routes.history import router as history_router
 from fastapi.middleware.cors import CORSMiddleware
+from app.routes.unsubscribed import router as unsubscribed_router
+from app.routes import bounced
 
 app = FastAPI()
 
@@ -24,3 +26,5 @@ app.include_router(upload_router)
 app.include_router(dashboard_router)
 app.include_router(contacts_router)
 app.include_router(history_router)
+app.include_router(unsubscribed_router)
+app.include_router(bounced.router)

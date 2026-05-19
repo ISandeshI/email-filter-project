@@ -1,179 +1,131 @@
-import re
-from sqlalchemy import delete
-from app.database.models import TempUploadContact
-from app.services.staging_service import stage_uploaded_contacts
-from sqlalchemy import select
+import pandas as pd
+import time
+import redis
+import json
 
-from app.database.models import (
-    UnsubscribedContact,
-    MasterContact
-)
-
-from datetime import datetime, timedelta, timezone
+from app.database.connection import SessionLocal
+from app.services.db_service import save_upload_history
+from app.services.bulk_service import bulk_upsert_master_contacts
+from app.core.filter_engine import process_file
+from app.celery_worker import celery
 
 
-EMAIL_REGEX = re.compile(
-    r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
-)
+@celery.task
+def process_upload_task(file_path: str, upload_id: int):
 
+    redis_client = redis.Redis(host="localhost", port=6379, db=0)
+    redis_key = f"upload:{upload_id}"
 
-def process_file(df, db):
+    start_time = time.time()
 
-    original_rows = len(df)
+    original_rows = 0
+    total_valid_rows = 0
 
-    # =========================
-    # NORMALIZE
-    # =========================
+    filtered_output_path = f"filtered_files/filtered_{upload_id}.xlsx"
+    excel_writer = pd.ExcelWriter(filtered_output_path, engine="openpyxl")
 
-    df["Email"] = (
-        df["Email"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-        .str.lower()
-    )
+    db = SessionLocal()
 
-    # =========================
-    # REMOVE BLANK EMAILS
-    # =========================
+    try:
 
-    df = df[df["Email"] != ""]
+        redis_client.set(redis_key, json.dumps({
+            "status": "processing",
+            "progress": 10
+        }))
 
-    # =========================
-    # REMOVE DUPLICATES
-    # =========================
+        # =========================
+        # XLSX PROCESSING
+        # =========================
+        if file_path.endswith(".xlsx"):
 
-    before_duplicates = len(df)
+            df = pd.read_excel(file_path)
+            original_rows = len(df)
 
-    df = df.drop_duplicates(subset=["Email"])
+            # IMPORT INSIDE TASK (important fix)
+            from app.core.filter_engine import process_file
 
-    removed_duplicates = (
-        before_duplicates - len(df)
-    )
+            result = process_file(df, db)
 
-    # =========================
-    # REGEX VALIDATION
-    # =========================
+            filtered_df = result["filtered_df"]
+            stats = result["stats"]
 
-    before_validation = len(df)
+            total_valid_rows = stats["valid_rows"]
 
-    valid_df = df[
-        df["Email"].apply(
-            lambda x: bool(EMAIL_REGEX.match(x))
+            filtered_df.to_excel(excel_writer, index=False)
+
+            if not filtered_df.empty:
+                bulk_upsert_master_contacts(db, filtered_df)
+
+        # =========================
+        # CSV PROCESSING
+        # =========================
+        else:
+
+            chunk_iterator = pd.read_csv(file_path, chunksize=20000)
+            sheet_row = 0
+
+            for chunk in chunk_iterator:
+
+                original_rows += len(chunk)
+
+                # IMPORT INSIDE LOOP (important fix)
+                from app.core.filter_engine import process_file
+
+                result = process_file(chunk, db)
+
+                filtered_chunk = result["filtered_df"]
+                stats = result["stats"]
+
+                total_valid_rows += stats["valid_rows"]
+
+                if not filtered_chunk.empty:
+
+                    bulk_upsert_master_contacts(db, filtered_chunk)
+
+                    filtered_chunk.to_excel(
+                        excel_writer,
+                        index=False,
+                        header=(sheet_row == 0),
+                        startrow=sheet_row
+                    )
+
+                    sheet_row += len(filtered_chunk)
+
+        excel_writer.close()
+
+        processing_time = int(time.time() - start_time)
+
+        save_upload_history(
+            db,
+            file_path.split("/")[-1],
+            original_rows,
+            total_valid_rows,
+            processing_time
         )
-    ]
 
-    removed_invalid = (
-        before_validation - len(valid_df)
-    )
-
-    if valid_df.empty:
+        redis_client.set(redis_key, json.dumps({
+            "status": "completed",
+            "upload_id": upload_id,
+            "original_rows": original_rows,
+            "valid_rows": total_valid_rows,
+            "processing_time": processing_time
+        }))
 
         return {
-            "filtered_df": valid_df,
-            "stats": {
-                "original_rows": original_rows,
-                "valid_rows": 0,
-                "removed_duplicates": removed_duplicates,
-                "removed_invalid": removed_invalid,
-                "removed_unsubscribed": 0,
-                "removed_recent": 0
-            }
+            "upload_id": upload_id,
+            "status": "completed"
         }
 
-    # =========================
-    # STAGE DATA
-    # =========================
+    except Exception as e:
 
-    batch_id = stage_uploaded_contacts(
-        db,
-        valid_df
-    )
+        db.rollback()
 
-    # =========================
-    # UNSUBSCRIBED FILTER
-    # =========================
+        redis_client.set(redis_key, json.dumps({
+            "status": "failed",
+            "error": str(e)
+        }))
 
-    unsubscribed_emails = set(
+        raise e
 
-        db.execute(
-
-            select(TempUploadContact.email)
-            .join(
-                UnsubscribedContact,
-                TempUploadContact.email == UnsubscribedContact.email
-            )
-            .where(
-                TempUploadContact.upload_batch == batch_id
-            )
-
-        ).scalars().all()
-
-    )
-
-    removed_unsubscribed = len(
-        unsubscribed_emails
-    )
-
-    filtered_df = valid_df[
-        ~valid_df["Email"].isin(unsubscribed_emails)
-    ]
-
-    # =========================
-    # RECENT FILTER
-    # =========================
-
-    ninety_days_ago = (
-        datetime.now(timezone.utc)
-        - timedelta(days=90)
-    )
-
-    recent_emails = set(
-
-        db.execute(
-
-            select(TempUploadContact.email)
-            .join(
-                MasterContact,
-                TempUploadContact.email == MasterContact.email
-            )
-            .where(
-                TempUploadContact.upload_batch == batch_id,
-                MasterContact.last_used_at >= ninety_days_ago
-            )
-
-        ).scalars().all()
-
-    )
-
-    removed_recent = len(
-        recent_emails
-    )
-
-    filtered_df = filtered_df[
-        ~filtered_df["Email"].isin(recent_emails)
-    ]
-
-    # =========================
-    # CLEANUP STAGING
-    # =========================
-
-    db.execute(
-        delete(TempUploadContact).where(
-            TempUploadContact.upload_batch == batch_id
-        )
-    )
-
-    db.commit()
-
-    return {
-        "filtered_df": filtered_df,
-        "stats": {
-            "original_rows": original_rows,
-            "valid_rows": len(filtered_df),
-            "removed_duplicates": removed_duplicates,
-            "removed_invalid": removed_invalid,
-            "removed_unsubscribed": removed_unsubscribed,
-            "removed_recent": removed_recent
-        }
-    }
+    finally:
+        db.close()

@@ -71,3 +71,17 @@ class TempUploadContact(Base):
     email = Column(String, index=True)
 
     upload_batch = Column(String, index=True)
+
+class BouncedContact(Base):
+    __tablename__ = "bounced_contacts"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    email = Column(String, unique=True, index=True)
+
+    bounced_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc)
+    )
+
+    reason = Column(String, nullable=True)
