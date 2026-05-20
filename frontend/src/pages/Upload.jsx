@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 
 import { API_BASE } from "../config";
 
+import PageContainer from "../components/PageContainer";
+
 export default function Upload() {
 
   // Main Upload
@@ -39,17 +41,26 @@ export default function Upload() {
 
     formData.append("file", file);
 
-    const res = await fetch(
-      `${API_BASE}/upload`,
-      {
-        method: "POST",
-        body: formData,
-      }
-    );
+    try {
 
-    const data = await res.json();
+      const res = await fetch(
+        `${API_BASE}/upload`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
 
-    setUploadId(data.upload_id);
+      const data = await res.json();
+
+      setUploadId(data.upload_id);
+
+    } catch (err) {
+
+      setStatus("failed");
+
+      setLoading(false);
+    }
   };
 
   // ====================================
@@ -74,6 +85,7 @@ export default function Upload() {
         data.status === "completed"
         || data.status === "failed"
       ) {
+
         clearInterval(interval);
 
         setLoading(false);
@@ -99,56 +111,79 @@ export default function Upload() {
 
     formData.append("file", unsubscribeFile);
 
-    const res = await fetch(
-      `${API_BASE}/upload/unsubscribed`,
-      {
-        method: "POST",
-        body: formData,
-      }
-    );
+    try {
 
-    const data = await res.json();
+      const res = await fetch(
+        `${API_BASE}/upload/unsubscribed`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
 
-    setUnsubscribeResult(data);
+      const data = await res.json();
 
-    setUnsubscribeLoading(false);
+      setUnsubscribeResult(data);
+
+    } catch (err) {
+
+      console.error(err);
+
+    } finally {
+
+      setUnsubscribeLoading(false);
+    }
   };
 
   return (
 
-    <div className="space-y-8">
+    <PageContainer title="Upload Center">
 
-      <h1 className="text-2xl font-bold">
-        Upload Center
-      </h1>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-      {/* Main Upload Section */}
-      <div className="
-        bg-white
-        border
-        border-gray-200
-        rounded-xl
-        shadow-sm
-        p-6
-      ">
-
-        <h2 className="
-          text-xl
-          font-semibold
-          mb-4
+        {/* Main Upload Section */}
+        <div className="
+          bg-white
+          border
+          border-gray-200
+          rounded-xl
+          shadow-sm
+          p-6
+          space-y-5
         ">
-          Upload Contacts
-        </h2>
 
-        <input
-          type="file"
-          onChange={(e) =>
-            setFile(e.target.files[0])
-          }
-          className="mb-4"
-        />
+          <div>
 
-        <div>
+            <h2 className="
+              text-xl
+              font-semibold
+              text-gray-800
+            ">
+              Upload Contacts
+            </h2>
+
+            <p className="
+              text-sm
+              text-gray-500
+              mt-1
+            ">
+              Upload CSV/XLSX files for filtering and suppression.
+            </p>
+
+          </div>
+
+          <input
+            type="file"
+            onChange={(e) =>
+              setFile(e.target.files[0])
+            }
+            className="
+              block
+              w-full
+              text-sm
+              text-gray-600
+            "
+          />
 
           <button
             onClick={handleUpload}
@@ -161,6 +196,7 @@ export default function Upload() {
               rounded-lg
               hover:bg-slate-800
               transition
+              disabled:opacity-50
             "
           >
             {loading
@@ -168,35 +204,39 @@ export default function Upload() {
               : "Upload File"}
           </button>
 
-        </div>
+          {uploadId && (
 
-        {uploadId && (
+            <div className="
+              border-t
+              pt-5
+              space-y-3
+            ">
 
-          <div className="mt-6 space-y-2">
+              <div className="text-sm">
+                <span className="font-medium">
+                  Upload ID:
+                </span>
+                {" "}
+                {uploadId}
+              </div>
 
-            <p>
-              <strong>Upload ID:</strong>
-              {" "}
-              {uploadId}
-            </p>
+              <div className="text-sm">
+                <span className="font-medium">
+                  Status:
+                </span>
+                {" "}
+                <span className="capitalize">
+                  {status}
+                </span>
+              </div>
 
-            <p>
-              <strong>Status:</strong>
-              {" "}
-              {status}
-            </p>
+              {status === "processing" && (
+                <div className="text-blue-600 text-sm">
+                  Processing file...
+                </div>
+              )}
 
-            {status === "processing" && (
-              <p>Processing...</p>
-            )}
-
-            {status === "completed" && (
-
-              <div>
-
-                <p className="mb-3">
-                  Done ✔
-                </p>
+              {status === "completed" && (
 
                 <a
                   href={
@@ -218,61 +258,65 @@ export default function Upload() {
                   Download Filtered File
                 </a>
 
-              </div>
+              )}
 
-            )}
+              {status === "failed" && (
+                <div className="text-red-600 text-sm">
+                  Upload failed
+                </div>
+              )}
 
-            {status === "failed" && (
-              <p>
-                Failed ❌
-              </p>
-            )}
+            </div>
+
+          )}
+
+        </div>
+
+        {/* Unsubscribe Upload Section */}
+        <div className="
+          bg-white
+          border
+          border-gray-200
+          rounded-xl
+          shadow-sm
+          p-6
+          space-y-5
+        ">
+
+          <div>
+
+            <h2 className="
+              text-xl
+              font-semibold
+              text-gray-800
+            ">
+              Upload Unsubscribed Contacts
+            </h2>
+
+            <p className="
+              text-sm
+              text-gray-500
+              mt-1
+            ">
+              Required column: Email
+            </p>
 
           </div>
 
-        )}
-
-      </div>
-
-      {/* Unsubscribe Upload Section */}
-      <div className="
-        bg-white
-        border
-        border-gray-200
-        rounded-xl
-        shadow-sm
-        p-6
-      ">
-
-        <h2 className="
-          text-xl
-          font-semibold
-          mb-4
-        ">
-          Upload Unsubscribed Contacts
-        </h2>
-
-        <p className="
-          text-sm
-          text-gray-500
-          mb-4
-        ">
-          Required column:
-          {" "}
-          <strong>Email</strong>
-        </p>
-
-        <input
-          type="file"
-          onChange={(e) =>
-            setUnsubscribeFile(
-              e.target.files[0]
-            )
-          }
-          className="mb-4"
-        />
-
-        <div>
+          <input
+            type="file"
+            onChange={(e) =>
+              setUnsubscribeFile(
+                e.target.files[0]
+              )
+            }
+            className="
+              block
+              w-full
+              text-sm
+              text-gray-600
+            "
+          />
 
           <button
             onClick={handleUnsubscribeUpload}
@@ -288,6 +332,7 @@ export default function Upload() {
               rounded-lg
               hover:bg-red-700
               transition
+              disabled:opacity-50
             "
           >
             {unsubscribeLoading
@@ -295,33 +340,39 @@ export default function Upload() {
               : "Upload Unsubscribed List"}
           </button>
 
+          {unsubscribeResult && (
+
+            <div className="
+              border-t
+              pt-5
+              space-y-2
+              text-sm
+            ">
+
+              <div>
+                <span className="font-medium">
+                  Total Uploaded:
+                </span>
+                {" "}
+                {unsubscribeResult.total_uploaded}
+              </div>
+
+              <div>
+                <span className="font-medium">
+                  Inserted:
+                </span>
+                {" "}
+                {unsubscribeResult.inserted}
+              </div>
+
+            </div>
+
+          )}
+
         </div>
-
-        {unsubscribeResult && (
-
-          <div className="
-            mt-6
-            space-y-2
-          ">
-
-            <p>
-              <strong>Total Uploaded:</strong>
-              {" "}
-              {unsubscribeResult.total_uploaded}
-            </p>
-
-            <p>
-              <strong>Inserted:</strong>
-              {" "}
-              {unsubscribeResult.inserted}
-            </p>
-
-          </div>
-
-        )}
 
       </div>
 
-    </div>
+    </PageContainer>
   );
 }

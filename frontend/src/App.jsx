@@ -1,9 +1,8 @@
 import { Routes, Route, Link } from "react-router-dom";
 
 import Upload from "./pages/Upload.jsx";
-import Dashboard from "./pages/Dashboard.jsx";
-import History from "./pages/History.jsx";
 import DashboardV2 from "./pages/DashboardV2";
+import History from "./pages/History.jsx";
 
 export default function App() {
 
@@ -105,7 +104,7 @@ export default function App() {
 
           <Route
             path="/"
-            element={<Dashboard />}
+            element={<DashboardV2 />}
           />
 
           <Route
