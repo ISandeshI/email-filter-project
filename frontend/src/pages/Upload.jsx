@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
-
 import { API_BASE } from "../config";
-
 import PageContainer from "../components/PageContainer";
+import Card from "../components/Card";
 
 export default function Upload() {
 
@@ -142,15 +141,7 @@ export default function Upload() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
         {/* Main Upload Section */}
-        <div className="
-          bg-white
-          border
-          border-gray-200
-          rounded-xl
-          shadow-sm
-          p-6
-          space-y-5
-        ">
+        <Card className="border border-gray-200 space-y-5">
 
           <div>
 
@@ -240,7 +231,7 @@ export default function Upload() {
 
                 <a
                   href={
-                    `${API_BASE}/download/filtered_${uploadId}.xlsx`
+                    `${API_BASE}/download/filtered_${uploadId}.csv`
                   }
                   target="_blank"
                   rel="noreferrer"
@@ -270,18 +261,10 @@ export default function Upload() {
 
           )}
 
-        </div>
+        </Card>
 
         {/* Unsubscribe Upload Section */}
-        <div className="
-          bg-white
-          border
-          border-gray-200
-          rounded-xl
-          shadow-sm
-          p-6
-          space-y-5
-        ">
+        <Card className="border border-gray-200 space-y-5">
 
           <div>
 
@@ -369,7 +352,7 @@ export default function Upload() {
 
           )}
 
-        </div>
+        </Card>
 
       </div>
 

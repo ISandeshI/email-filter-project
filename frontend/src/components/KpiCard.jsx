@@ -1,15 +1,14 @@
+import Card from "./Card";
+
 export default function KpiCard({
   title,
   value
 }) {
   return (
-    <div className="
-      bg-white
-      p-5
-      rounded-xl
+
+    <Card className="
       border
-      border-gray-200
-      shadow-sm
+      border-gray-100
     ">
 
       <p className="
@@ -28,6 +27,6 @@ export default function KpiCard({
         {value}
       </p>
 
-    </div>
+    </Card>
   );
 }

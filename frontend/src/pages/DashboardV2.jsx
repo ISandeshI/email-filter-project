@@ -11,7 +11,10 @@ import {
 } from "recharts";
 
 import { API_BASE } from "../config";
+
 import KpiCard from "../components/KpiCard";
+
+import PageContainer from "../components/PageContainer";
 
 export default function DashboardV2() {
 
@@ -19,75 +22,154 @@ export default function DashboardV2() {
 
   const [uploadTrend, setUploadTrend] = useState([]);
 
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
 
-    fetch(`${API_BASE}/dashboard/stats`)
-      .then((res) => res.json())
-      .then((data) => setStats(data))
-      .catch((err) => console.log(err));
+    const fetchDashboardData = async () => {
 
-    fetch(`${API_BASE}/dashboard/upload-trend`)
-      .then((res) => res.json())
-      .then((data) => setUploadTrend(data))
-      .catch((err) => console.log(err));
+      try {
+
+        const statsRes = await fetch(
+          `${API_BASE}/dashboard/stats`
+        );
+
+        const statsData = await statsRes.json();
+
+        setStats(statsData);
+
+        const trendRes = await fetch(
+          `${API_BASE}/dashboard/upload-trend`
+        );
+
+        const trendData = await trendRes.json();
+
+        setUploadTrend(trendData);
+
+      } catch (err) {
+
+        console.log(err);
+
+      } finally {
+
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
 
   }, []);
 
   return (
-    <div className="p-6 space-y-6">
 
-      <h1 className="text-2xl font-bold">
-        Dashboard V2
-      </h1>
+    <PageContainer title="Analytics Dashboard">
 
-      {!stats ? (
-        <p>Loading...</p>
+      {loading ? (
+
+        <div className="
+          bg-white
+          p-6
+          rounded-xl
+          shadow-sm
+          text-gray-500
+        ">
+          Loading dashboard...
+        </div>
+
       ) : (
-        <>
+
+        <div className="space-y-8">
 
           {/* Primary KPI Row */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
 
-            <KpiCard
-              title="Master Contacts"
-              value={stats.total_master_contacts}
-            />
+            <h2 className="
+              text-lg
+              font-semibold
+              text-gray-800
+              mb-4
+            ">
+              Overview
+            </h2>
 
-            <KpiCard
-              title="Unsubscribed"
-              value={stats.total_unsubscribed}
-            />
+            <div className="
+              grid
+              grid-cols-1
+              md:grid-cols-3
+              gap-4
+            ">
 
-            <KpiCard
-              title="Active Usage (90D)"
-              value={stats.used_last_90_days}
-            />
+              <KpiCard
+                title="Master Contacts"
+                value={stats.total_master_contacts}
+              />
+
+              <KpiCard
+                title="Unsubscribed"
+                value={stats.total_unsubscribed}
+              />
+
+              <KpiCard
+                title="Active Usage (90D)"
+                value={stats.used_last_90_days}
+              />
+
+            </div>
 
           </div>
 
           {/* Secondary KPI Row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
 
-            <KpiCard
-              title="Total Uploads"
-              value={stats.total_uploads}
-            />
+            <h2 className="
+              text-lg
+              font-semibold
+              text-gray-800
+              mb-4
+            ">
+              Upload Analytics
+            </h2>
 
-            <KpiCard
-              title="Filtered Contacts"
-              value={stats.total_filtered_contacts}
-            />
+            <div className="
+              grid
+              grid-cols-1
+              md:grid-cols-2
+              gap-4
+            ">
+
+              <KpiCard
+                title="Total Uploads"
+                value={stats.total_uploads}
+              />
+
+              <KpiCard
+                title="Filtered Contacts"
+                value={stats.total_filtered_contacts}
+              />
+
+            </div>
 
           </div>
 
           {/* Suppression Analytics */}
           <div>
 
-            <h2 className="text-lg font-semibold mb-4">
+            <h2 className="
+              text-lg
+              font-semibold
+              text-gray-800
+              mb-4
+            ">
               Suppression Analytics
             </h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="
+              grid
+              grid-cols-1
+              md:grid-cols-2
+              xl:grid-cols-4
+              gap-4
+            ">
 
               <KpiCard
                 title="Duplicates Removed"
@@ -113,14 +195,35 @@ export default function DashboardV2() {
 
           </div>
 
-          {/* Upload Trend Chart */}
-          <div className="p-4 border rounded-lg">
+          {/* Upload Trend */}
+          <div className="
+            bg-white
+            p-6
+            rounded-xl
+            shadow-sm
+          ">
 
-            <h2 className="text-lg font-semibold mb-4">
-              Upload Trend
-            </h2>
+            <div className="mb-6">
 
-            <div style={{ width: "100%", height: 300 }}>
+              <h2 className="
+                text-lg
+                font-semibold
+                text-gray-800
+              ">
+                Upload Trend
+              </h2>
+
+              <p className="
+                text-sm
+                text-gray-500
+                mt-1
+              ">
+                Upload activity trend over time.
+              </p>
+
+            </div>
+
+            <div style={{ width: "100%", height: 320 }}>
 
               <ResponsiveContainer>
 
@@ -152,9 +255,10 @@ export default function DashboardV2() {
 
           </div>
 
-        </>
+        </div>
+
       )}
 
-    </div>
+    </PageContainer>
   );
 }
