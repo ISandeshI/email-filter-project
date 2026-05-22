@@ -230,9 +230,7 @@ export default function Upload() {
               {status === "completed" && (
 
                 <a
-                  href={
-                    `${API_BASE}/download/filtered_${uploadId}.csv`
-                  }
+                  href={`${API_BASE}/download/${uploadId}`}
                   target="_blank"
                   rel="noreferrer"
                   className="

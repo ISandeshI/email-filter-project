@@ -27,7 +27,20 @@ def process_file(df: pd.DataFrame, db):
     # -----------------------
     # Normalize email
     # -----------------------
-    df["Email"] = df["Email"].astype(str).str.strip().str.lower()
+    # normalize column names first
+    df.columns = [c.strip() for c in df.columns]
+
+    # find email column dynamically
+    email_col = None
+    for c in df.columns:
+        if c.lower() == "email":
+            email_col = c
+            break
+
+    if not email_col:
+        raise ValueError("Email column not found in uploaded file")
+
+    df["Email"] = df[email_col].astype(str).str.strip().str.lower()
 
     # -----------------------
     # VALID EMAIL FILTER

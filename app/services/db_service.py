@@ -4,19 +4,21 @@ from app.database.models import MasterContact, UploadHistory
 
 def save_upload_history(
             db,
+            upload_id,
             filename,
             total_rows,
             valid_rows,
             processing_time
         ):
-    
+
     record = UploadHistory(
-    filename=filename,
-    total_rows=total_rows,
-    valid_rows=valid_rows,
-    removed_duplicates=0,
-    removed_invalid=0,
-    processing_time_seconds=processing_time
+        upload_id=upload_id,
+        filename=filename,
+        total_rows=total_rows,
+        valid_rows=valid_rows,
+        removed_duplicates=0,
+        removed_invalid=0,
+        processing_time_seconds=processing_time
     )
 
     db.add(record)

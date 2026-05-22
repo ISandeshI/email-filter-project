@@ -17,7 +17,6 @@ export default function History() {
         );
 
         const data = await res.json();
-
         setHistory(data.results || []);
       } catch (err) {
         setHistory([]);
@@ -34,6 +33,15 @@ export default function History() {
       .toLowerCase()
       .includes(searchTerm.toLowerCase())
   );
+
+  const handleDownload = (uploadId) => {
+    if (!uploadId) return;
+
+    window.open(
+      `${API_BASE}/download/${uploadId}`,
+      "_blank"
+    );
+  };
 
   return (
     <PageContainer title="Upload History">
@@ -63,6 +71,7 @@ export default function History() {
             { label: "Valid Rows" },
             { label: "Uploaded At" },
             { label: "Processing Time" },
+            { label: "Actions" },
           ]}
           data={filteredHistory}
           renderRow={(item, index) => (
@@ -85,6 +94,16 @@ export default function History() {
 
               <td className="px-6 py-4 text-gray-700">
                 {item.processing_time_seconds}s
+              </td>
+
+              <td className="px-6 py-4">
+                <button
+                  onClick={() => handleDownload(item.upload_id)}
+                  disabled={!item.upload_id}
+                  className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg text-sm"
+                >
+                  Download
+                </button>
               </td>
             </tr>
           )}

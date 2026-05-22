@@ -36,6 +36,8 @@ def upload_history(
         for item in history:
 
             results.append({
+                "id": item.id,
+                "upload_id": item.upload_id,
                 "filename": item.filename,
                 "uploaded_at": item.uploaded_at,
                 "total_rows": item.total_rows,

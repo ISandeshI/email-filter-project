@@ -37,10 +37,27 @@ class UnsubscribedContact(Base):
     reason = Column(String, nullable=True)
 
 
+class BouncedContact(Base):
+    __tablename__ = "bounced_contacts"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    email = Column(String, unique=True, index=True)
+
+    bounced_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc)
+    )
+
+    reason = Column(String, nullable=True)
+
+
 class UploadHistory(Base):
     __tablename__ = "upload_history"
 
     id = Column(Integer, primary_key=True, index=True)
+
+    upload_id = Column(Integer, unique=True, index=True)
 
     filename = Column(String)
 
@@ -60,28 +77,23 @@ class UploadHistory(Base):
     processing_time_seconds = Column(Integer, default=0)
 
 
-class TempUploadContact(Base):
-    __tablename__ = "temp_upload_contacts"
+class CampaignSnapshot(Base):
+    """
+    Stores FINAL filtered result at upload time.
+    This is the source of truth for ALL future re-downloads.
+    """
+    __tablename__ = "campaign_snapshots"
 
     id = Column(Integer, primary_key=True, index=True)
+
+    upload_id = Column(Integer, index=True)
+
+    email = Column(String, index=True)
 
     first_name = Column(String)
     last_name = Column(String)
 
-    email = Column(String, index=True)
-
-    upload_batch = Column(String, index=True)
-
-class BouncedContact(Base):
-    __tablename__ = "bounced_contacts"
-
-    id = Column(Integer, primary_key=True, index=True)
-
-    email = Column(String, unique=True, index=True)
-
-    bounced_at = Column(
+    created_at = Column(
         DateTime,
         default=lambda: datetime.now(timezone.utc)
     )
-
-    reason = Column(String, nullable=True)
