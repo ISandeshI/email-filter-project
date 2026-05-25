@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Query
+from sqlalchemy import or_, cast, String
 
 from app.database.connection import SessionLocal
 from app.database.models import UploadHistory
@@ -11,7 +12,9 @@ def upload_history(
 
     page: int = Query(1),
 
-    limit: int = Query(10)
+    limit: int = Query(10),
+
+    search: str = Query(None)
 
 ):
 
@@ -21,13 +24,25 @@ def upload_history(
 
         offset = (page - 1) * limit
 
-        total_records = db.query(
-            UploadHistory
-        ).count()
+        query = db.query(UploadHistory)
 
-        history = db.query(
-            UploadHistory
-        ).order_by(
+        if search:
+
+            search_term = f"%{search.strip()}%"
+
+            query = query.filter(
+                or_(
+                    UploadHistory.filename.ilike(search_term),
+                    cast(
+                        UploadHistory.upload_id,
+                        String
+                    ).ilike(search_term)
+                )
+            )
+
+        total_records = query.count()
+
+        history = query.order_by(
             UploadHistory.uploaded_at.desc()
         ).offset(offset).limit(limit).all()
 

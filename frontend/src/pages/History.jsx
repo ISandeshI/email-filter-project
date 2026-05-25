@@ -10,29 +10,32 @@ export default function History() {
   const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
-    const fetchHistory = async () => {
-      try {
-        const res = await fetch(
-          `${API_BASE}/upload/history?page=1&limit=10`
-        );
+    const delayDebounce = setTimeout(() => {
+      fetchHistory();
+    }, 400);
 
-        const data = await res.json();
-        setHistory(data.results || []);
-      } catch (err) {
-        setHistory([]);
-      } finally {
-        setLoading(false);
-      }
-    };
+    return () => clearTimeout(delayDebounce);
+  }, [searchTerm]);
 
-    fetchHistory();
-  }, []);
+  const fetchHistory = async () => {
+    try {
+      setLoading(true);
 
-  const filteredHistory = history.filter((item) =>
-    cleanFilename(item.filename)
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase())
-  );
+      const searchQuery = encodeURIComponent(searchTerm);
+
+      const res = await fetch(
+        `${API_BASE}/upload/history?page=1&limit=100&search=${searchQuery}`
+      );
+
+      const data = await res.json();
+
+      setHistory(data.results || []);
+    } catch (err) {
+      setHistory([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleDownload = (uploadId) => {
     if (!uploadId) return;
@@ -48,7 +51,7 @@ export default function History() {
       <div className="bg-white p-4 rounded-xl shadow-sm mb-6">
         <input
           type="text"
-          placeholder="Search by filename..."
+          placeholder="Search by filename or upload ID..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full border border-gray-200 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500"
@@ -59,7 +62,7 @@ export default function History() {
         <div className="bg-white p-6 rounded-xl shadow-sm text-gray-500">
           Loading history...
         </div>
-      ) : filteredHistory.length === 0 ? (
+      ) : history.length === 0 ? (
         <div className="bg-white p-8 rounded-xl shadow-sm text-center text-gray-500">
           No upload history found
         </div>
@@ -73,7 +76,7 @@ export default function History() {
             { label: "Processing Time" },
             { label: "Actions" },
           ]}
-          data={filteredHistory}
+          data={history}
           renderRow={(item, index) => (
             <tr key={index} className="hover:bg-gray-50 transition-colors">
               <td className="px-6 py-4 text-gray-700">
