@@ -15,11 +15,15 @@ class MasterContact(Base):
     email = Column(String, unique=True, index=True)
 
     first_uploaded_at = Column(
-        DateTime,
+        DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc)
     )
 
-    last_used_at = Column(DateTime, index=True, nullable=True)
+    last_used_at = Column(
+        DateTime(timezone=True),
+        index=True,
+        nullable=True
+    )
 
 
 class UnsubscribedContact(Base):
@@ -30,7 +34,7 @@ class UnsubscribedContact(Base):
     email = Column(String, unique=True, index=True)
 
     unsubscribed_at = Column(
-        DateTime,
+        DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc)
     )
 
@@ -45,7 +49,7 @@ class BouncedContact(Base):
     email = Column(String, unique=True, index=True)
 
     bounced_at = Column(
-        DateTime,
+        DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc)
     )
 
@@ -62,7 +66,7 @@ class UploadHistory(Base):
     filename = Column(String)
 
     uploaded_at = Column(
-        DateTime,
+        DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc)
     )
 
@@ -94,6 +98,6 @@ class CampaignSnapshot(Base):
     last_name = Column(String)
 
     created_at = Column(
-        DateTime,
+        DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc)
     )

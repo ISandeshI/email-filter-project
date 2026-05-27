@@ -1,5 +1,6 @@
 from sqlalchemy.dialects.postgresql import insert
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+
 from app.database.models import MasterContact
 
 
@@ -10,45 +11,140 @@ def bulk_upsert_master_contacts(db, df):
 
     now = datetime.now(timezone.utc)
 
+    cutoff_date = now - timedelta(days=90)
+
     df = df.copy()
 
     # normalize emails
-    df["Email"] = df["Email"].astype(str).str.strip().str.lower()
+    df["Email"] = (
+        df["Email"]
+        .astype(str)
+        .str.strip()
+        .str.lower()
+    )
 
-    records = df[["First Name", "Last Name", "Email"]].to_dict(orient="records")
+    records = df[
+        ["First Name", "Last Name", "Email"]
+    ].to_dict(orient="records")
 
-    formatted_records = []
+    emails = [
+        r.get("Email")
+        for r in records
+    ]
+
+    # -----------------------------
+    # FETCH EXISTING CONTACTS
+    # -----------------------------
+
+    existing_contacts = db.query(
+        MasterContact
+    ).filter(
+        MasterContact.email.in_(emails)
+    ).all()
+
+    existing_map = {
+        c.email: c
+        for c in existing_contacts
+    }
+
+    insert_records = []
+
+    update_records = []
+
+    # -----------------------------
+    # APPLY BUSINESS LOGIC
+    # -----------------------------
 
     for r in records:
-        formatted_records.append({
-            "first_name": r.get("First Name"),
-            "last_name": r.get("Last Name"),
-            "email": r.get("Email"),
 
-            # IMPORTANT:
-            # store only FIRST time seen
-            "first_uploaded_at": now
-        })
+        email = r.get("Email")
 
-    BATCH_SIZE = 20000
+        existing = existing_map.get(email)
 
-    for i in range(0, len(formatted_records), BATCH_SIZE):
+        # --------------------------------
+        # NEW CONTACT
+        # --------------------------------
 
-        batch = formatted_records[i:i + BATCH_SIZE]
+        if not existing:
 
-        stmt = insert(MasterContact).values(batch)
+            insert_records.append({
 
-        stmt = stmt.on_conflict_do_update(
-            index_elements=["email"],
-            set_={
-                "first_name": insert(MasterContact).excluded.first_name,
-                "last_name": insert(MasterContact).excluded.last_name
-                # ❌ DO NOT update first_uploaded_at
-            }
+                "first_name":
+                    r.get("First Name"),
+
+                "last_name":
+                    r.get("Last Name"),
+
+                "email":
+                    email,
+
+                "first_uploaded_at":
+                    now,
+
+                "last_used_at":
+                    now
+            })
+
+        # --------------------------------
+        # EXISTING CONTACT
+        # --------------------------------
+
+        else:
+
+            # only refresh if older than 90 days
+            if (
+                existing.last_used_at is None
+                or existing.last_used_at < cutoff_date
+            ):
+
+                update_records.append({
+
+                    "id": existing.id,
+
+                    "first_name":
+                        r.get("First Name"),
+
+                    "last_name":
+                        r.get("Last Name"),
+
+                    "last_used_at":
+                        now
+                })
+
+    # -----------------------------
+    # BULK INSERT NEW CONTACTS
+    # -----------------------------
+
+    if insert_records:
+
+        stmt = insert(MasterContact).values(
+            insert_records
         )
 
         db.execute(stmt)
 
+    # -----------------------------
+    # BULK UPDATE OLD CONTACTS
+    # -----------------------------
+
+    if update_records:
+
+        for row in update_records:
+
+            db.query(MasterContact).filter(
+                MasterContact.id == row["id"]
+            ).update({
+
+                "first_name":
+                    row["first_name"],
+
+                "last_name":
+                    row["last_name"],
+
+                "last_used_at":
+                    row["last_used_at"]
+            })
+
     db.commit()
 
-    return len(formatted_records)
+    return len(records)

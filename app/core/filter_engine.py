@@ -1,6 +1,6 @@
 import re
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from app.database.models import (
     UnsubscribedContact,
@@ -19,7 +19,7 @@ def is_valid_email(email: str) -> bool:
 
 def process_file(df: pd.DataFrame, db):
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     cutoff_date = now - timedelta(days=90)
 
     df = df.copy()
@@ -69,7 +69,7 @@ def process_file(df: pd.DataFrame, db):
 
         recent_rows = db.query(MasterContact.email).filter(
             MasterContact.email.in_(emails),
-            MasterContact.first_uploaded_at >= cutoff_date
+            MasterContact.last_used_at >= cutoff_date
         ).all()
         recent_set = {r[0] for r in recent_rows}
 
@@ -96,14 +96,14 @@ def process_file(df: pd.DataFrame, db):
     # FINAL OUTPUT
     # -----------------------
     stats = {
-        "valid_rows": len(df),
+        "valid_rows": int(len(df)),
 
-        "removed_duplicates": dup_removed,
-        "removed_invalid": invalid_removed,
+        "removed_duplicates": int(dup_removed),
+        "removed_invalid": int(invalid_removed),
 
-        "removed_unsubscribed": len(unsub_set),
-        "removed_bounced": len(bounced_set),
-        "removed_recent": len(recent_set)
+        "removed_unsubscribed": int(len(unsub_set)),
+        "removed_bounced": int(len(bounced_set)),
+        "removed_recent": int(len(recent_set))
     }
 
     return {

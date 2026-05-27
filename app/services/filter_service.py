@@ -28,6 +28,12 @@ def process_upload_task(file_path: str, upload_id: int):
     original_rows = 0
     total_valid_rows = 0
 
+    total_duplicates_removed = 0
+    total_invalid_removed = 0
+    total_unsubscribed_removed = 0
+    total_bounced_removed = 0
+    total_recent_removed = 0
+
     os.makedirs("filtered_files", exist_ok=True)
 
     filtered_output_path = (
@@ -64,6 +70,26 @@ def process_upload_task(file_path: str, upload_id: int):
 
             stats = result["stats"]
 
+            total_duplicates_removed += stats.get(
+                "removed_duplicates", 0
+            )
+
+            total_invalid_removed += stats.get(
+                "removed_invalid", 0
+            )
+
+            total_unsubscribed_removed += stats.get(
+                "removed_unsubscribed", 0
+            )
+
+            total_bounced_removed += stats.get(
+                "removed_bounced", 0
+            )
+
+            total_recent_removed += stats.get(
+                "removed_recent", 0
+            )
+
             total_valid_rows = stats["valid_rows"]
 
             filtered_df.to_csv(
@@ -97,6 +123,26 @@ def process_upload_task(file_path: str, upload_id: int):
                 filtered_chunk = result["filtered_df"]
 
                 stats = result["stats"]
+
+                total_duplicates_removed += stats.get(
+                    "removed_duplicates", 0
+                )
+
+                total_invalid_removed += stats.get(
+                    "removed_invalid", 0
+                )
+
+                total_unsubscribed_removed += stats.get(
+                    "removed_unsubscribed", 0
+                )
+
+                total_bounced_removed += stats.get(
+                    "removed_bounced", 0
+                )
+
+                total_recent_removed += stats.get(
+                    "removed_recent", 0
+                )
 
                 total_valid_rows += stats["valid_rows"]
 
@@ -150,12 +196,25 @@ def process_upload_task(file_path: str, upload_id: int):
         processing_time = int(time.time() - start_time)
 
         save_upload_history(
-            db,
-            upload_id,
-            file_path.split("/")[-1],
-            original_rows,
-            total_valid_rows,
-            processing_time
+            db=db,
+
+            upload_id=upload_id,
+
+            filename=file_path.split("/")[-1],
+
+            total_rows=original_rows,
+
+            valid_rows=total_valid_rows,
+
+            processing_time=processing_time,
+
+            removed_duplicates=total_duplicates_removed,
+
+            removed_invalid=total_invalid_removed,
+
+            removed_unsubscribed=total_unsubscribed_removed,
+
+            removed_recent=total_recent_removed
         )
 
         redis_client.set(
